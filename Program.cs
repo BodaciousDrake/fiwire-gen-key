@@ -1,8 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Security.Cryptography;
-using CommandLine;
-using System.Collections.Generic;
 
 namespace CreateEncryptionKeyFiwire
 {
@@ -16,45 +14,22 @@ namespace CreateEncryptionKeyFiwire
         {
             try
             {
-                //parse the command line arguments
-                Parser.Default.ParseArguments<CommandLineOptions>(args)
-                  .WithParsed(HandleParsed)
-                  .WithNotParsed(HandleParseError);
+                if (args.Length != 1)
+                {
+                    Console.WriteLine("ERROR: please provide one argument, the shared key");
+                }
+                else
+                {
+                    //get the encrypted string as a bytearray
+                    byte[] encrypted = EncryptStringToBytes(GetValueToEncrypt(args[0]));
+
+                    //print the encrypted string to the console using b64 encoding (end of program)
+                    Console.WriteLine(Convert.ToBase64String(encrypted));
+                }
             }
             catch (Exception e)
             {
                 Console.WriteLine("Error: {0}", e.Message);
-            }
-        }
-
-        /// <summary>
-        /// If all the required command line arguments are present,
-        /// this method does the work of generating the required string.
-        /// </summary>
-        /// <param name="options">options from the command line</param>
-        private static void HandleParsed(CommandLineOptions options)
-        {
-            //get the encrypted string as a bytearray
-            byte[] encrypted = EncryptStringToBytes(
-                plainText: GetValueToEncrypt(options.SharedSecret), 
-                Key: Convert.FromBase64String(options.KeyValue), 
-                IV: Convert.FromBase64String(options.IVValue)
-            );
-
-            //print the encrypted string to the console using b64 encoding (end of program)
-            Console.WriteLine(Convert.ToBase64String(encrypted));
-        }
-
-        /// <summary>
-        /// If the command line option requirements are not met, 
-        /// spit out the errors on the command line.
-        /// </summary>
-        /// <param name="errs">a list of errors from parsing the command line options</param>
-        private static void HandleParseError(IEnumerable<Error> errs)
-        {
-            foreach(var err in errs)
-            {
-                Console.WriteLine(err.ToString());
             }
         }
 
@@ -73,10 +48,8 @@ namespace CreateEncryptionKeyFiwire
         /// Take a given string and encrypt it according to Fiwire requirements
         /// </summary>
         /// <param name="plainText">The text to be encrypted</param>
-        /// <param name="Key">The private key (provided by Fiserv)</param>
-        /// <param name="IV">The initialization vector (provided by Fiserv)</param>
-        /// <returns></returns>
-        private static byte[] EncryptStringToBytes(string plainText, byte[] Key, byte[] IV)
+        /// <returns>the encrypted string</returns>
+        private static byte[] EncryptStringToBytes(string plainText)
         {
             //setup the Rijndael encryption
             using RijndaelManaged rijAlg = new RijndaelManaged
@@ -84,13 +57,14 @@ namespace CreateEncryptionKeyFiwire
                 BlockSize = 128,
                 KeySize = 256,
                 Padding = PaddingMode.PKCS7,
-                Mode = CipherMode.CBC,
-                Key = Key,
-                IV = IV
+                Mode = CipherMode.CBC
             };
 
+            rijAlg.GenerateKey();
+            rijAlg.GenerateIV();
+
             // Create an encryptor to perform the stream transform.
-            ICryptoTransform encryptor = rijAlg.CreateEncryptor(rijAlg.Key, rijAlg.IV);
+            ICryptoTransform encryptor = rijAlg.CreateEncryptor();
 
             // Create the streams used for encryption.
             using MemoryStream msEncrypt = new MemoryStream();                
