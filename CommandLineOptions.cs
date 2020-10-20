@@ -2,6 +2,10 @@
 
 namespace CreateEncryptionKeyFiwire
 {
+    /// <summary>
+    /// This class is used by the CommandLine plugin to parse command line options
+    /// and provide helpful instructions
+    /// </summary>
     class CommandLineOptions
     {
         [Option('s', "shared", Required = true, HelpText = "The shared secret key")]
