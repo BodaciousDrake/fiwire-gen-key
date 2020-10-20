@@ -31,7 +31,6 @@ namespace CreateEncryptionKeyFiwire
             );
 
             Console.WriteLine(Convert.ToBase64String(encrypted));
-            Console.ReadKey();
         }
 
         private static void HandleParseError(IEnumerable<Error> errs)
