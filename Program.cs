@@ -1,6 +1,8 @@
-﻿using System;
+﻿using Microsoft.Extensions.Configuration;
+using System;
 using System.IO;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace CreateEncryptionKeyFiwire
 {
@@ -14,18 +16,23 @@ namespace CreateEncryptionKeyFiwire
         {
             try
             {
-                if (args.Length != 1)
-                {
-                    Console.WriteLine("ERROR: please provide one argument, the shared key");
-                }
-                else
-                {
-                    //get the encrypted string as a bytearray
-                    byte[] encrypted = EncryptStringToBytes(GetValueToEncrypt(args[0]));
+                var builder = new ConfigurationBuilder()
+                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                    .Build();
+                var appSettings = new FiwireSettings();
+                builder.Bind("FiwireSettings", appSettings);
+               
+                //get the encrypted string as a bytearray
+                byte[] encrypted = EncryptStringToBytes(
+                    plainText: GetValueToEncrypt(appSettings.SharedSecret), 
+                    key: Encoding.ASCII.GetBytes(appSettings.Key),
+                    IV: Encoding.ASCII.GetBytes(appSettings.IV)
+                );
 
-                    //print the encrypted string to the console using b64 encoding (end of program)
-                    Console.WriteLine(Convert.ToBase64String(encrypted));
-                }
+                //print the encrypted string to the console using b64 encoding (end of program)
+                Console.WriteLine(Convert.ToBase64String(encrypted));
+                
             }
             catch (Exception e)
             {
@@ -49,7 +56,7 @@ namespace CreateEncryptionKeyFiwire
         /// </summary>
         /// <param name="plainText">The text to be encrypted</param>
         /// <returns>the encrypted string</returns>
-        private static byte[] EncryptStringToBytes(string plainText)
+        private static byte[] EncryptStringToBytes(string plainText, byte[] key, byte[] IV)
         {
             //setup the Rijndael encryption
             using RijndaelManaged rijAlg = new RijndaelManaged
@@ -57,11 +64,10 @@ namespace CreateEncryptionKeyFiwire
                 BlockSize = 128,
                 KeySize = 256,
                 Padding = PaddingMode.PKCS7,
-                Mode = CipherMode.CBC
+                Mode = CipherMode.CBC,
+                Key = key,
+                IV = IV
             };
-
-            rijAlg.GenerateKey();
-            rijAlg.GenerateIV();
 
             // Create an encryptor to perform the stream transform.
             ICryptoTransform encryptor = rijAlg.CreateEncryptor();
