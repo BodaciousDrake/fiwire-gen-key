@@ -1,8 +1,7 @@
 {
   "profiles": {
     "CreateEncryptionKeyFiwire": {
-      "commandName": "Project",
-      "commandLineArgs": "YXNhc2FzYXNhc2FzYXNhc2FzYXNhc2FzYXNhc2FzYXM="
+      "commandName": "Project"
     }
   }
 }

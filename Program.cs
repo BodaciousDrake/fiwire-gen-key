@@ -16,6 +16,7 @@ namespace CreateEncryptionKeyFiwire
         {
             try
             {
+                //get settings from appsettings.json
                 var builder = new ConfigurationBuilder()
                     .SetBasePath(Directory.GetCurrentDirectory())
                     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
