@@ -52,6 +52,8 @@ namespace CreateEncryptionKeyFiwire
         /// Take a given string and encrypt it according to Fiwire requirements
         /// </summary>
         /// <param name="plainText">The text to be encrypted</param>
+        /// <param name="IV">The initial vector to use</param>
+        /// <param name="key">The secret key to use</param>
         /// <returns>the encrypted string</returns>
         private static string EncryptString(string plainText, string key, string IV)
         {
