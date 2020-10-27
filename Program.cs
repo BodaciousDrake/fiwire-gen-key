@@ -23,61 +23,62 @@ namespace CreateEncryptionKeyFiwire
                     .Build();
                 var appSettings = new FiwireSettings();
                 builder.Bind("FiwireSettings", appSettings);
-               
-                //get the encrypted string as a bytearray
-                Console.WriteLine(Encrypt(
-                    plainText: GetValueToEncrypt(appSettings.SharedSecret), 
-                    skey: appSettings.Key,
-                    sIV_value: appSettings.IV,
-                    keySize: 256
-                ));
-                
+
+                //print the encrypted string to the console
+                Console.WriteLine(EncryptString(
+                    plainText: GetValueToEncrypt(appSettings.SharedSecret),
+                    key: appSettings.Key,
+                    IV: appSettings.IV
+                ));                
             }
             catch (Exception e)
             {
-                Console.WriteLine("Error: {0}", e.Message);
+                Console.WriteLine($"Error: {e.Message}");
             }
         }
 
         /// <summary>
         /// The actual value that is encrypted is the current date/time
-        /// and a shared key provided by Fiserv.
+        /// and a shared value provided by Fiserv.
         /// </summary>
-        /// <param name="sharedValue">The shared key provided by Fiserv</param>
+        /// <param name="sharedValue">The shared value provided by Fiserv</param>
         /// <returns>A formatted string ready to be encrypted</returns>
         private static string GetValueToEncrypt(string sharedValue)
         {
             return $"{DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss")}|{sharedValue}";
         }
 
-        public static string Encrypt(string plainText,
-                                     string skey,
-                                     string sIV_value,
-                                     int keySize)
+        /// <summary>
+        /// Take a given string and encrypt it according to Fiwire requirements
+        /// </summary>
+        /// <param name="plainText">The text to be encrypted</param>
+        /// <returns>the encrypted string</returns>
+        private static string EncryptString(string plainText, string key, string IV)
         {
-            RijndaelManaged myRijndael = new RijndaelManaged
+            //setup the Rijndael encryption
+            using var rijAlg = new RijndaelManaged
             {
-                Mode = CipherMode.CBC,
                 BlockSize = 128,
-                KeySize = keySize,
+                KeySize = 256,
                 Padding = PaddingMode.PKCS7,
-                IV = Encoding.ASCII.GetBytes(sIV_value),
-                Key = Encoding.ASCII.GetBytes(skey)
+                Mode = CipherMode.CBC,
+                Key = Encoding.ASCII.GetBytes(key),
+                IV = Encoding.ASCII.GetBytes(IV)
             };
 
-            //Get an encryptor.
-            var encryptor = myRijndael.CreateEncryptor(myRijndael.Key, myRijndael.IV);
-            using var msEncrypt = new MemoryStream();
-            using var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
+            // Create an encryptor to perform the stream transform.
+            var encryptor = rijAlg.CreateEncryptor();
 
-            //Convert the data to a byte array.
-            var toEncrypt = Encoding.ASCII.GetBytes(plainText);
+            // Create the streams used for encryption.
+            using MemoryStream msEncrypt = new MemoryStream();
+            using CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
+            using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
+            {
+                //Write all data to the stream.
+                swEncrypt.Write(plainText);
+            }
 
-            //Write all data to the crypto stream and flush it.
-            csEncrypt.Write(toEncrypt, 0, toEncrypt.Length);
-            csEncrypt.FlushFinalBlock();
-
-            // return the encrypted array of bytes encoded using b64
+            // Return the encrypted bytes from the memory stream encoded with b64
             return Convert.ToBase64String(msEncrypt.ToArray());
         }
     }
