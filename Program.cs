@@ -55,37 +55,30 @@ namespace CreateEncryptionKeyFiwire
                                      string sIV_value,
                                      int keySize)
         {
-            ASCIIEncoding textConverter = new ASCIIEncoding();
             RijndaelManaged myRijndael = new RijndaelManaged
             {
                 Mode = CipherMode.CBC,
                 BlockSize = 128,
                 KeySize = keySize,
-                Padding = PaddingMode.PKCS7
+                Padding = PaddingMode.PKCS7,
+                IV = Encoding.ASCII.GetBytes(sIV_value),
+                Key = Encoding.ASCII.GetBytes(skey)
             };
 
-            myRijndael.IV = textConverter.GetBytes(sIV_value);
-            myRijndael.Key = textConverter.GetBytes(skey);
-
             //Get an encryptor.
-            ICryptoTransform encryptor = myRijndael.CreateEncryptor(myRijndael.Key, myRijndael.IV);
-
-            //Encrypt the data.
+            var encryptor = myRijndael.CreateEncryptor(myRijndael.Key, myRijndael.IV);
             using var msEncrypt = new MemoryStream();
             using var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
 
             //Convert the data to a byte array.
-            var toEncrypt = textConverter.GetBytes(plainText);
+            var toEncrypt = Encoding.ASCII.GetBytes(plainText);
 
             //Write all data to the crypto stream and flush it.
             csEncrypt.Write(toEncrypt, 0, toEncrypt.Length);
             csEncrypt.FlushFinalBlock();
 
-            //Get encrypted array of bytes.
-            var encrypted = msEncrypt.ToArray();
-
-            // Convert the array to a base64 encoded string
-            return Convert.ToBase64String(encrypted);
+            // return the encrypted array of bytes encoded using b64
+            return Convert.ToBase64String(msEncrypt.ToArray());
         }
     }
 }
