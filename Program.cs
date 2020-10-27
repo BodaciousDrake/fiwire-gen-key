@@ -25,14 +25,12 @@ namespace CreateEncryptionKeyFiwire
                 builder.Bind("FiwireSettings", appSettings);
                
                 //get the encrypted string as a bytearray
-                byte[] encrypted = EncryptStringToBytes(
+                Console.WriteLine(Encrypt(
                     plainText: GetValueToEncrypt(appSettings.SharedSecret), 
-                    key: Encoding.ASCII.GetBytes(appSettings.Key),
-                    IV: Encoding.ASCII.GetBytes(appSettings.IV)
-                );
-
-                //print the encrypted string to the console using b64 encoding (end of program)
-                Console.WriteLine(Convert.ToBase64String(encrypted));
+                    skey: appSettings.Key,
+                    sIV_value: appSettings.IV,
+                    keySize: 256
+                ));
                 
             }
             catch (Exception e)
@@ -52,38 +50,42 @@ namespace CreateEncryptionKeyFiwire
             return $"{DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss")}|{sharedValue}";
         }
 
-        /// <summary>
-        /// Take a given string and encrypt it according to Fiwire requirements
-        /// </summary>
-        /// <param name="plainText">The text to be encrypted</param>
-        /// <returns>the encrypted string</returns>
-        private static byte[] EncryptStringToBytes(string plainText, byte[] key, byte[] IV)
+        public static string Encrypt(string plainText,
+                                     string skey,
+                                     string sIV_value,
+                                     int keySize)
         {
-            //setup the Rijndael encryption
-            using RijndaelManaged rijAlg = new RijndaelManaged
+            ASCIIEncoding textConverter = new ASCIIEncoding();
+            RijndaelManaged myRijndael = new RijndaelManaged
             {
-                BlockSize = 128,
-                KeySize = 256,
-                Padding = PaddingMode.PKCS7,
                 Mode = CipherMode.CBC,
-                Key = key,
-                IV = IV
+                BlockSize = 128,
+                KeySize = keySize,
+                Padding = PaddingMode.PKCS7
             };
 
-            // Create an encryptor to perform the stream transform.
-            ICryptoTransform encryptor = rijAlg.CreateEncryptor();
+            myRijndael.IV = textConverter.GetBytes(sIV_value);
+            myRijndael.Key = textConverter.GetBytes(skey);
 
-            // Create the streams used for encryption.
-            using MemoryStream msEncrypt = new MemoryStream();                
-            using CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
-            using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
-            {
-                //Write all data to the stream.
-                swEncrypt.Write(plainText);
-            }
+            //Get an encryptor.
+            ICryptoTransform encryptor = myRijndael.CreateEncryptor(myRijndael.Key, myRijndael.IV);
 
-            // Return the encrypted bytes from the memory stream.
-            return msEncrypt.ToArray();
+            //Encrypt the data.
+            using var msEncrypt = new MemoryStream();
+            using var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
+
+            //Convert the data to a byte array.
+            var toEncrypt = textConverter.GetBytes(plainText);
+
+            //Write all data to the crypto stream and flush it.
+            csEncrypt.Write(toEncrypt, 0, toEncrypt.Length);
+            csEncrypt.FlushFinalBlock();
+
+            //Get encrypted array of bytes.
+            var encrypted = msEncrypt.ToArray();
+
+            // Convert the array to a base64 encoded string
+            return Convert.ToBase64String(encrypted);
         }
     }
 }
