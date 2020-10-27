@@ -25,15 +25,20 @@ namespace CreateEncryptionKeyFiwire
                 builder.Bind("FiwireSettings", appSettings);
 
                 //print the encrypted string to the console
-                Console.WriteLine(EncryptString(
+                var text = EncryptString(
                     plainText: GetValueToEncrypt(appSettings.SharedSecret),
                     key: appSettings.Key,
                     IV: appSettings.IV
-                ));                
+                );
+                Console.WriteLine(text);
+                var decrypted = DecryptString(text, appSettings.Key, appSettings.IV);
+                Console.WriteLine(decrypted);
+                Console.ReadLine();
             }
             catch (Exception e)
             {
                 Console.WriteLine($"Error: {e.Message}");
+                Console.ReadKey();
             }
         }
 
@@ -82,6 +87,38 @@ namespace CreateEncryptionKeyFiwire
 
             // Return the encrypted bytes from the memory stream encoded with b64
             return Convert.ToBase64String(msEncrypt.ToArray());
+        }
+
+
+        static string DecryptString(string cipherText, string key, string IV)
+        {           
+            string plaintext = null;
+
+            //setup teh Rijndael encryption
+            using var rijAlg = new RijndaelManaged
+            {
+                BlockSize = 128,
+                KeySize = 256,
+                Padding = PaddingMode.PKCS7,
+                Mode = CipherMode.CBC,
+                Key = Encoding.ASCII.GetBytes(key),
+                IV = Encoding.ASCII.GetBytes(IV)
+            };
+                
+            // Create a decryptor to perform the stream transform.
+            var decryptor = rijAlg.CreateDecryptor();
+
+            // Create the streams used for decryption.
+            using var msDecrypt = new MemoryStream(Convert.FromBase64String(cipherText));
+            using var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read);
+            using (var srDecrypt = new StreamReader(csDecrypt))
+            {
+                // Read the decrypted bytes from the decrypting stream
+                // and place them in a string.
+                plaintext = srDecrypt.ReadToEnd();
+            }
+
+            return plaintext;
         }
     }
 }
