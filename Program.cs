@@ -70,9 +70,9 @@ namespace CreateEncryptionKeyFiwire
             var encryptor = rijAlg.CreateEncryptor();
 
             // Create the streams used for encryption.
-            using MemoryStream msEncrypt = new MemoryStream();
-            using CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
-            using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
+            using var msEncrypt = new MemoryStream();
+            using var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
+            using (var swEncrypt = new StreamWriter(csEncrypt))
             {
                 //Write all data to the stream.
                 swEncrypt.Write(plainText);
