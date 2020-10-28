@@ -20,53 +20,10 @@ namespace CreateEncryptionKeyFiwire
             {
                 //parse command line arguments, if any
                 var parsedArgs = Parser.Default.ParseArguments<CommandLineOptions>(args)
-                    .WithParsed(opts =>
+                    .WithParsed(PerformEncryptionOperation) //valid settings, so do work
+                    .WithNotParsed(errors => //invalid settings, print errors
                     {
-                        //get settings from appsettings.json
-                        var builder = new ConfigurationBuilder()
-                            .SetBasePath(Directory.GetCurrentDirectory());
-
-                        var fileName = "appsettings.json";
-
-                        //check to see if the user specified an alternate location for the appsettings
-                        if (opts.AppSettingsPath != null)
-                        {                            
-                            builder.SetBasePath(Path.GetDirectoryName(opts.AppSettingsPath));
-
-                            //if the user did not specify a file name, default to appsettings.json
-                            //otherwise, use the name they specified
-                            if (Path.HasExtension(opts.AppSettingsPath))
-                                fileName = Path.GetFileName(opts.AppSettingsPath);
-                        }
-
-                        var built = builder
-                            .AddJsonFile(fileName, optional: false, reloadOnChange: true)
-                            .Build();
-
-                        var appSettings = new FiwireSettings();
-                        built.Bind("FiwireSettings", appSettings);
-
-                        //check to see if the user requested a decrypt
-                        if (!string.IsNullOrWhiteSpace(opts.ToDecrypt))
-                        {
-                            Console.WriteLine(DecryptString(
-                                cipherText: opts.ToDecrypt,
-                                key: appSettings.Key,
-                                IV: appSettings.IV
-                            ));
-                        }
-                        else
-                        {
-                            // print the encrypted string to the console
-                            Console.WriteLine(EncryptString(
-                                plainText: GetValueToEncrypt(appSettings.SharedSecret),
-                                key: appSettings.Key,
-                                IV: appSettings.IV
-                            ));
-                        }
-                    })
-                    .WithNotParsed(errors =>
-                    {
+                        //don't include helprequested error
                         var err = errors
                             .Where(e => !(e is HelpRequestedError))
                             .Select(e => e.ToString());
@@ -82,6 +39,50 @@ namespace CreateEncryptionKeyFiwire
         }
 
         /// <summary>
+        /// If the user supplied valid cmd line args and we found the settings file
+        /// then perform the encrypt/decrypt operation.
+        /// </summary>
+        /// <param name="opts">The options from the command line (optional)</param>
+        private static void PerformEncryptionOperation(CommandLineOptions opts)
+        {
+            //get settings from appsettings.json
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory());
+
+            //set default value for settings file name
+            var fileName = "appsettings.json";
+
+            //check to see if the user specified an alternate location for the appsettings
+            if (opts.AppSettingsPath != null)
+            {
+                //set the working directory to the user-specified directory
+                builder.SetBasePath(Path.GetDirectoryName(opts.AppSettingsPath));
+
+                //if the user did not specify a file name, default to appsettings.json
+                //otherwise, use the name they specified
+                if (Path.HasExtension(opts.AppSettingsPath))
+                    fileName = Path.GetFileName(opts.AppSettingsPath);
+            }
+
+            var built = builder
+                .AddJsonFile(fileName, optional: false, reloadOnChange: true)
+                .Build();
+
+            //bind the settings file to a settings object
+            var appSettings = new FiwireSettings();
+            built.Bind("FiwireSettings", appSettings);
+
+            //setup the encryption based on fiserv settings
+            var rijAlg = GetRijndaelManaged(appSettings.Key, appSettings.IV);
+
+            //check to see if the user requested a decrypt
+            if (!string.IsNullOrWhiteSpace(opts.ToDecrypt))
+                Console.WriteLine(DecryptString(opts.ToDecrypt, rijAlg));
+            else  // print the encrypted string to the console
+                Console.WriteLine(EncryptString(GetValueToEncrypt(appSettings.SharedSecret), rijAlg));
+        }
+
+        /// <summary>
         /// The actual value that is encrypted is the current date/time
         /// and a shared value provided by Fiserv.
         /// </summary>
@@ -93,16 +94,14 @@ namespace CreateEncryptionKeyFiwire
         }
 
         /// <summary>
-        /// Take a given string and encrypt it according to Fiwire requirements
+        /// Build an encryptor based on the correct settings
         /// </summary>
-        /// <param name="plainText">The text to be encrypted</param>
-        /// <param name="IV">The initial vector to use</param>
-        /// <param name="key">The secret key to use</param>
-        /// <returns>the encrypted string</returns>
-        private static string EncryptString(string plainText, string key, string IV)
+        /// <param name="key">The key to use to encrypt/decrypt</param>
+        /// <param name="IV">The initialization vector to use</param>
+        /// <returns>An encryptor using Fiserv's settings</returns>
+        private static RijndaelManaged GetRijndaelManaged(string key, string IV)
         {
-            //setup the Rijndael encryption
-            using var rijAlg = new RijndaelManaged
+            return new RijndaelManaged
             {
                 BlockSize = 128,
                 KeySize = 256,
@@ -111,7 +110,17 @@ namespace CreateEncryptionKeyFiwire
                 Key = Encoding.ASCII.GetBytes(key),
                 IV = Encoding.ASCII.GetBytes(IV)
             };
+        }
 
+        /// <summary>
+        /// Take a given string and encrypt it according to Fiwire requirements
+        /// </summary>
+        /// <param name="plainText">The text to be encrypted</param>
+        /// <param name="IV">The initial vector to use</param>
+        /// <param name="key">The secret key to use</param>
+        /// <returns>the encrypted string</returns>
+        private static string EncryptString(string plainText, RijndaelManaged rijAlg)
+        {
             // Create an encryptor to perform the stream transform.
             var encryptor = rijAlg.CreateEncryptor();
 
@@ -129,27 +138,16 @@ namespace CreateEncryptionKeyFiwire
         }
 
         /// <summary>
-        /// Test method used for decrypting the output from EncryptString.
+        /// Decrypt an ecnrypted string.
         /// </summary>
         /// <param name="cipherText">The output from EncryptString</param>
         /// <param name="key">The key originally used to encrypt the string</param>
         /// <param name="IV">The IV originally used to encrypt the string</param>
         /// <returns>The decrypted original string</returns>
-        static string DecryptString(string cipherText, string key, string IV)
+        static string DecryptString(string cipherText, RijndaelManaged rijAlg)
         {           
             string plaintext = null;
 
-            //setup the Rijndael encryption
-            using var rijAlg = new RijndaelManaged
-            {
-                BlockSize = 128,
-                KeySize = 256,
-                Padding = PaddingMode.PKCS7,
-                Mode = CipherMode.CBC,
-                Key = Encoding.ASCII.GetBytes(key),
-                IV = Encoding.ASCII.GetBytes(IV)
-            };
-                
             // Create a decryptor to perform the stream transform.
             var decryptor = rijAlg.CreateDecryptor();
 
