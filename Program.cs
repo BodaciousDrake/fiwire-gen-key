@@ -11,6 +11,7 @@ namespace CreateEncryptionKeyFiwire
     /// <summary>
     /// This program serves to generate a b64 encoded string that is used
     /// as an authentication key for Fiwire.
+    /// It can also decrypt a previously encrypted string.
     /// </summary>
     class Program
     {
@@ -39,13 +40,13 @@ namespace CreateEncryptionKeyFiwire
         }
 
         /// <summary>
-        /// If the user supplied valid cmd line args and we found the settings file
+        /// If the user supplied valid cmd line args then we attempt to
         /// then perform the encrypt/decrypt operation.
         /// </summary>
         /// <param name="opts">The options from the command line (optional)</param>
         private static void PerformEncryptionOperation(CommandLineOptions opts)
         {
-            //get settings from appsettings.json
+            //default working directory to curret directory
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory());
 
@@ -86,11 +87,11 @@ namespace CreateEncryptionKeyFiwire
         /// The actual value that is encrypted is the current date/time
         /// and a shared value provided by Fiserv.
         /// </summary>
-        /// <param name="sharedValue">The shared value provided by Fiserv</param>
+        /// <param name="sharedSecret">The shared value provided by Fiserv</param>
         /// <returns>A formatted string ready to be encrypted</returns>
-        private static string GetValueToEncrypt(string sharedValue)
+        private static string GetValueToEncrypt(string sharedSecret)
         {
-            return $"{DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss")}|{sharedValue}";
+            return $"{DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss")}|{sharedSecret}";
         }
 
         /// <summary>
