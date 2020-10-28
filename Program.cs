@@ -40,7 +40,7 @@ namespace CreateEncryptionKeyFiwire
                         }
 
                         var built = builder
-                            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                            .AddJsonFile(fileName, optional: false, reloadOnChange: true)
                             .Build();
 
                         var appSettings = new FiwireSettings();
