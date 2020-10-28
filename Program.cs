@@ -26,9 +26,18 @@ namespace CreateEncryptionKeyFiwire
                         var builder = new ConfigurationBuilder()
                             .SetBasePath(Directory.GetCurrentDirectory());
 
+                        var fileName = "appsettings.json";
+
                         //check to see if the user specified an alternate location for the appsettings
                         if (opts.AppSettingsPath != null)
-                            builder.SetBasePath(opts.AppSettingsPath);
+                        {                            
+                            builder.SetBasePath(Path.GetDirectoryName(opts.AppSettingsPath));
+
+                            //if the user did not specify a file name, default to appsettings.json
+                            //otherwise, use the name they specified
+                            if (Path.HasExtension(opts.AppSettingsPath))
+                                fileName = Path.GetFileName(opts.AppSettingsPath);
+                        }
 
                         var built = builder
                             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
@@ -56,9 +65,14 @@ namespace CreateEncryptionKeyFiwire
                             ));
                         }
                     })
-                    .WithNotParsed(err =>
+                    .WithNotParsed(errors =>
                     {
-                        Console.WriteLine($"Error parsing command line args: {string.Join(", ", err.Select(e => e.ToString()))}");
+                        var err = errors
+                            .Where(e => !(e is HelpRequestedError))
+                            .Select(e => e.ToString());
+
+                        if (err.Count() > 0)
+                            Console.WriteLine($"Error parsing command line arguments: {string.Join(", ", err)}");
                     });
             }
             catch (Exception e)
