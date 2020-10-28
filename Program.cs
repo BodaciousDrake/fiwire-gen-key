@@ -1,6 +1,8 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using CommandLine;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -16,20 +18,48 @@ namespace CreateEncryptionKeyFiwire
         {
             try
             {
-                //get settings from appsettings.json
-                var builder = new ConfigurationBuilder()
-                    .SetBasePath(Directory.GetCurrentDirectory())
-                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                    .Build();
-                var appSettings = new FiwireSettings();
-                builder.Bind("FiwireSettings", appSettings);
+                //parse command line arguments, if any
+                var parsedArgs = Parser.Default.ParseArguments<CommandLineOptions>(args)
+                    .WithParsed(opts =>
+                    {
+                        //get settings from appsettings.json
+                        var builder = new ConfigurationBuilder()
+                            .SetBasePath(Directory.GetCurrentDirectory());
 
-                //print the encrypted string to the console
-                Console.WriteLine(EncryptString(
-                    plainText: GetValueToEncrypt(appSettings.SharedSecret),
-                    key: appSettings.Key,
-                    IV: appSettings.IV
-                ));
+                        //check to see if the user specified an alternate location for the appsettings
+                        if (opts.AppSettingsPath != null)
+                            builder.SetBasePath(opts.AppSettingsPath);
+
+                        var built = builder
+                            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                            .Build();
+
+                        var appSettings = new FiwireSettings();
+                        built.Bind("FiwireSettings", appSettings);
+
+                        //check to see if the user requested a decrypt
+                        if (!string.IsNullOrWhiteSpace(opts.ToDecrypt))
+                        {
+                            Console.WriteLine(DecryptString(
+                                cipherText: opts.ToDecrypt,
+                                key: appSettings.Key,
+                                IV: appSettings.IV
+                            ));
+                        }
+                        else
+                        {
+                            // print the encrypted string to the console
+                            Console.WriteLine(EncryptString(
+                                plainText: GetValueToEncrypt(appSettings.SharedSecret),
+                                key: appSettings.Key,
+                                IV: appSettings.IV
+                            ));
+                        }
+                    })
+                    .WithNotParsed(err =>
+                    {
+                        Console.WriteLine($"Error parsing command line args: {string.Join(", ", err.Select(e => e.ToString()))}");
+                    });
             }
             catch (Exception e)
             {
@@ -86,7 +116,6 @@ namespace CreateEncryptionKeyFiwire
 
         /// <summary>
         /// Test method used for decrypting the output from EncryptString.
-        /// Not currently in use.
         /// </summary>
         /// <param name="cipherText">The output from EncryptString</param>
         /// <param name="key">The key originally used to encrypt the string</param>
