@@ -25,20 +25,15 @@ namespace CreateEncryptionKeyFiwire
                 builder.Bind("FiwireSettings", appSettings);
 
                 //print the encrypted string to the console
-                var text = EncryptString(
+                Console.WriteLine(EncryptString(
                     plainText: GetValueToEncrypt(appSettings.SharedSecret),
                     key: appSettings.Key,
                     IV: appSettings.IV
-                );
-                Console.WriteLine(text);
-                var decrypted = DecryptString(text, appSettings.Key, appSettings.IV);
-                Console.WriteLine(decrypted);
-                Console.ReadLine();
+                ));
             }
             catch (Exception e)
             {
                 Console.WriteLine($"Error: {e.Message}");
-                Console.ReadKey();
             }
         }
 
@@ -89,12 +84,19 @@ namespace CreateEncryptionKeyFiwire
             return Convert.ToBase64String(msEncrypt.ToArray());
         }
 
-
+        /// <summary>
+        /// Test method used for decrypting the output from EncryptString.
+        /// Not currently in use.
+        /// </summary>
+        /// <param name="cipherText">The output from EncryptString</param>
+        /// <param name="key">The key originally used to encrypt the string</param>
+        /// <param name="IV">The IV originally used to encrypt the string</param>
+        /// <returns>The decrypted original string</returns>
         static string DecryptString(string cipherText, string key, string IV)
         {           
             string plaintext = null;
 
-            //setup teh Rijndael encryption
+            //setup the Rijndael encryption
             using var rijAlg = new RijndaelManaged
             {
                 BlockSize = 128,
